@@ -139,8 +139,20 @@ resource "azurerm_network_security_group" "app_nsg" {
   resource_group_name = azurerm_resource_group.rg.name
 
   security_rule {
-    name                       = "Allow-AppPort-From-Web"
+    name                       = "Allow-AppPort-From-AppGW"
     priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5000"
+    source_address_prefix      = "10.0.0.0/24" # AppGW Subnet
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-AppPort-From-Web"
+    priority                   = 110
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -415,16 +427,16 @@ resource "azurerm_application_gateway" "appgw" {
 
   backend_address_pool {
     name         = "web-backend-pool"
-    ip_addresses = [azurerm_network_interface.web_nic.private_ip_address]
+    ip_addresses = [azurerm_network_interface.app_nic.private_ip_address]
   }
 
   backend_http_settings {
-    name                                = "http-setting"
+    name                                 = "http-setting"
     cookie_based_affinity               = "Disabled"
-    port                                = 80
-    protocol                            = "Http"
-    request_timeout                     = 30
-    probe_name                          = "health-probe"
+    port                                 = 5000
+    protocol                             = "Http"
+    request_timeout                      = 30
+    probe_name                           = "health-probe"
     pick_host_name_from_backend_address = true
   }
 
@@ -445,13 +457,13 @@ resource "azurerm_application_gateway" "appgw" {
   }
 
   probe {
-    name                                      = "health-probe"
-    protocol                                  = "Http"
-    path                                      = "/health"
+    name                                       = "health-probe"
+    protocol                                   = "Http"
+    path                                       = "/"
     pick_host_name_from_backend_http_settings = true
-    interval                                  = 30
-    timeout                                   = 30
-    unhealthy_threshold                       = 3
+    interval                                   = 30
+    timeout                                    = 30
+    unhealthy_threshold                        = 3
   }
 }
 
